@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+
+
+@author: kshitijbhatnagar
+"""
+
+import web
+
+import dfs.fileserver
+
+urls = (
+        '(/.*)', 'dfs.fileserver.FileServer',
+       )
+
+app = web.application(urls, globals())
+
+if __name__ == '__main__':
+    app.run()
