@@ -15,43 +15,75 @@ from httplib import HTTPConnection
 
 import web
 
-import utils
+import utility
 
 class FileServer:
    
 
     def GET(self, filepath):
-        pass
+        web.header('Content-Type', 'text; char=UTF-8')
+
+        dir_not_servable(path)
+        dir_not_exist(path)
+        if_locked(path)
+        p = local_path(path)
+        web.header('Last Modified', time.ctime(os.path.getmtime(p)))
+        with open(p) as f:
+            return f.read()
     
 
-    def PUT(self, filepath):
-        pass
+    def PUT(self, path):
+        dir_not_servable(path)
+        if_locked(path)
+        p =local_path(path)
+        with open(p, 'w') as f:
+            f.write(web.data())
+        web.header('Last-Modified', time.ctime(os.path.getmtime(p)))
+        return ''
     
     
-    def DELETE(self, filepath):
-        pass
+    def DELETE(self, path):
+        web.header('Content-Type', 'text; char=UTF-8')
+        dir_not_servable(path)
+        dir_not_exist(path)
+        if_locked(path)
+        os.unlink(local_path(path))
+        return 'OK'
     
-    def HEAD(self, filepath):
-        pass
+    def HEAD(self, path):
+        web.header('Content-Type', 'text; char=UTF-8')
+        dir_not_servable(path)
+        dir_not_exist(path)
+        if_locked(path)
+        p = local_path(path)
+        web.header('Last-Modified', time.ctime(os.path.getmtime(p)))
+        return ''
 
-def _get_local_path(filepath):
+def local_path(path):
     
-    return os.path.join(os.getcwd(), _config['fsroot'], filepath[1:])
+    return os.path.join(os.getcwd(), _config['fsroot'], path[1:])
 
 
-def _raise_if_locked(filepath):
-    pass
+def if_locked(path):
+    j = web.input()
+    host, port = utility.get_host_port(_config['lockserver'])
+    if utility.is_locked(path, host, port, j.get('lock_id', None)):
+        raise web.unauthorized()
 
-def _raise_if_dir_or_not_servable(filepath):
-   pass
+def dir_not_servable(path):
+   p = local_path(path)
+    if (os.path.dirname(path) not in _config['directories'] or
+            os.path.isdir(p)):
+        raise web.notacceptable()
 
-def _raise_if_not_exists(filepath):
-    pass
+def dir_not_exist(path):
+    p = local_path(path)
+    if not os.path.exists(p):
+        raise web.webapi.HTTPError('No Content',
+                                   {'Content-Type': 'plain'})
 
 def _init_file_server():
-    """Just notify the nameserver about which directories we serve."""
-
-    host, port = utils.get_host_port(_config['server_name'])
+    host, port = utility.get_host_port(_config['server_name'])
     with closing(HTTPConnection(host, port)) as con:
         data = 'srv=%s&dirs=%s' % (_config['srv'],
                                 '\n'.join(_config['directories']),)
@@ -68,10 +100,6 @@ _config = {
 
 logging.info('Loading config file fileserver.dfs.json.')
 utils.load_config(_config, 'fileserver.dfs.json')
-
-# just to speed up the search to know if we can serve a file
-# O(n) → O(log n)
 _config['directories'] = set(_config['directories'])
-
 _init_file_server()
 
